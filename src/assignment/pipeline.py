@@ -9,6 +9,8 @@ from __future__ import annotations
 from assignment.rate_limiter import RateLimitPlugin
 from assignment.audit_log import AuditLogPlugin
 from assignment.monitoring import MonitoringAlert
+import urllib.parse
+from guardrails.output_guardrails import content_filter
 
 
 def is_egress_allowed(destination: str, payload: str) -> bool:
@@ -19,7 +21,20 @@ def is_egress_allowed(destination: str, payload: str) -> bool:
     contain a password, API key, database host, phone number or email address.
     Do not let the LLM's prose decide this policy.
     """
-    raise NotImplementedError("Implement is_egress_allowed")
+    try:
+        parsed = urllib.parse.urlparse(destination)
+        if parsed.scheme != "https":
+            return False
+        if parsed.hostname != "api.vinbank.example":
+            return False
+    except Exception:
+        return False
+        
+    filter_result = content_filter(payload)
+    if not filter_result["safe"]:
+        return False
+        
+    return True
 
 
 def build_production_plugins(
